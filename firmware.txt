@@ -1,0 +1,63 @@
+#include <ESP8266WiFi.h>
+#include "PubSubClient.h"
+
+const char *ssid =  "WIFI_SSID";    
+const char *pass =  "WIFI_PASSWORD";
+const char* mqttServer = "broker.hivemq.com";
+int mqttPort = 1883;
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+int buzzer = D2;
+int smokeA0 = A0;
+
+// Your threshold value. You might need to change it.
+int sensorThres = 500;
+
+void setup() {
+ pinMode(buzzer, OUTPUT);
+ pinMode(smokeA0, INPUT);
+ Serial.begin(115200);
+  Serial.println("Starting...");
+  delay(1000);
+  
+  WiFi.begin(ssid, pass);
+   while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+ 
+  Serial.println("Connected to the WiFi network");
+   client.setServer(mqttServer, mqttPort);
+   while (!client.connected()) {
+    Serial.println("Connecting to MQTT...");
+     if (client.connect("parking-device-01")) {
+       Serial.println("connected");
+     } else {
+      Serial.print("failed with state ");
+      Serial.print(client.state());
+      delay(2000);
+    }
+  }
+}
+
+void loop() {
+ int analogSensor = analogRead(smokeA0);
+
+ Serial.print("Pin A0: ");
+ Serial.println(analogSensor);
+ // Checks if it has reached the threshold value
+ if (analogSensor > sensorThres)
+ {
+   tone(buzzer, 1000, 200);
+   String payload = "Smoke Detected!";
+   client.publish("smoke_status", payload.c_str());
+ }
+ else
+ {
+   noTone(buzzer);
+ }
+ delay(100);
+ client.loop();
+}
